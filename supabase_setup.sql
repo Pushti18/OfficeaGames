@@ -200,6 +200,8 @@ SET search_path = public
 AS $$
 DECLARE
   v_username TEXT := LOWER(NULLIF(TRIM(_username), ''));
+  v_player public.players%ROWTYPE;
+  v_pw_hash TEXT;
 BEGIN
   IF v_username IS NULL THEN
     RAISE EXCEPTION 'invalid_username';
@@ -217,8 +219,19 @@ BEGIN
     RAISE EXCEPTION 'admin_already_initialized';
   END IF;
 
+  v_pw_hash := extensions.crypt(_password, extensions.gen_salt('bf', 10));
+
+  -- Create admin account
   INSERT INTO public.admin_accounts (username, password_hash, updated_at)
-  VALUES (v_username, extensions.crypt(_password, extensions.gen_salt('bf', 10)), NOW());
+  VALUES (v_username, v_pw_hash, NOW());
+
+  -- Also create a player + player_account so the admin can log in
+  INSERT INTO public.players (name, updated_at)
+  VALUES (v_username, NOW())
+  RETURNING * INTO v_player;
+
+  INSERT INTO public.player_accounts (player_id, username, password_hash, must_reset_password, updated_at)
+  VALUES (v_player.id, v_username, v_pw_hash, FALSE, NOW());
 
   RETURN v_username;
 END;

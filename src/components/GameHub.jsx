@@ -20,7 +20,7 @@ function formatCountdown(target) {
 
 function AdminPanel() {
   const [open, setOpen] = useState(false)
-  const [tab, setTab] = useState('players') // 'players' | 'questions' | 'dashboard' | 'import'
+  const [tab, setTab] = useState('players') // 'players' | 'questions' | 'dashboard' | 'import' | 'passwords'
   const [adminUsername, setAdminUsername] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
   const [authenticated, setAuthenticated] = useState(false)
@@ -33,6 +33,13 @@ function AdminPanel() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Password management state
+  const [pwTargetUsername, setPwTargetUsername] = useState('')
+  const [pwNewPassword, setPwNewPassword] = useState('')
+  const [adminCurrentPassword, setAdminCurrentPassword] = useState('')
+  const [adminNewPassword, setAdminNewPassword] = useState('')
+  const [adminConfirmPassword, setAdminConfirmPassword] = useState('')
 
   async function handleAdminAuth(e) {
     e.preventDefault()
@@ -93,6 +100,72 @@ function AdminPanel() {
     }
   }
 
+  async function handleResetPlayerPassword(e) {
+    e.preventDefault()
+    if (!pwTargetUsername.trim() || !pwNewPassword) {
+      setError('Enter player username and new password.')
+      return
+    }
+    if (pwNewPassword.length < 6) {
+      setError('Password must be at least 6 characters.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    setMessage('')
+    try {
+      const { error: rpcError } = await supabase.rpc('admin_update_player_password', {
+        _admin_username: adminUsername.trim().toLowerCase(),
+        _admin_password: adminPassword,
+        _player_username: pwTargetUsername.trim().toLowerCase(),
+        _new_password: pwNewPassword,
+      })
+      if (rpcError) throw rpcError
+      setMessage(`Password reset for "${pwTargetUsername.trim().toLowerCase()}".`)
+      setPwTargetUsername('')
+      setPwNewPassword('')
+    } catch (err) {
+      setError(err?.message || 'Failed to reset password.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleChangeAdminPassword(e) {
+    e.preventDefault()
+    if (!adminCurrentPassword || !adminNewPassword) {
+      setError('Enter current and new password.')
+      return
+    }
+    if (adminNewPassword.length < 6) {
+      setError('New password must be at least 6 characters.')
+      return
+    }
+    if (adminNewPassword !== adminConfirmPassword) {
+      setError('New passwords do not match.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    setMessage('')
+    try {
+      const { error: rpcError } = await supabase.rpc('admin_update_admin_password', {
+        _admin_username: adminUsername.trim().toLowerCase(),
+        _current_password: adminCurrentPassword,
+        _new_password: adminNewPassword,
+      })
+      if (rpcError) throw rpcError
+      setMessage('Admin password updated successfully.')
+      setAdminCurrentPassword('')
+      setAdminNewPassword('')
+      setAdminConfirmPassword('')
+    } catch (err) {
+      setError(err?.message || 'Failed to update admin password.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (!open) {
     return (
       <button className="btn-admin-toggle" onClick={() => setOpen(true)}>
@@ -142,9 +215,68 @@ function AdminPanel() {
             <button className={`admin-tab ${tab === 'import' ? 'active' : ''}`} onClick={() => setTab('import')}>
               Import
             </button>
+            <button className={`admin-tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')}>
+              Passwords
+            </button>
           </div>
 
-          {tab === 'dashboard' ? (
+          {tab === 'passwords' ? (
+            <div className="admin-form" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <h4 style={{ color: 'var(--primary2)', margin: 0 }}>Reset Player Password</h4>
+              <form onSubmit={handleResetPlayerPassword} className="admin-form">
+                <input
+                  type="text"
+                  placeholder="Player username"
+                  value={pwTargetUsername}
+                  onChange={e => { setPwTargetUsername(e.target.value); setError('') }}
+                  autoComplete="off"
+                />
+                <input
+                  type="password"
+                  placeholder="New password (min 6)"
+                  value={pwNewPassword}
+                  onChange={e => { setPwNewPassword(e.target.value); setError('') }}
+                  autoComplete="new-password"
+                />
+                <button type="submit" className="btn-primary" disabled={loading}>
+                  {loading ? 'Updating...' : 'Reset Player Password'}
+                </button>
+              </form>
+
+              <hr style={{ border: 'none', borderTop: '1px solid var(--surface2)', margin: '8px 0' }} />
+
+              <h4 style={{ color: 'var(--primary2)', margin: 0 }}>Change Admin Password</h4>
+              <form onSubmit={handleChangeAdminPassword} className="admin-form">
+                <input
+                  type="password"
+                  placeholder="Current admin password"
+                  value={adminCurrentPassword}
+                  onChange={e => { setAdminCurrentPassword(e.target.value); setError('') }}
+                  autoComplete="current-password"
+                />
+                <input
+                  type="password"
+                  placeholder="New admin password (min 6)"
+                  value={adminNewPassword}
+                  onChange={e => { setAdminNewPassword(e.target.value); setError('') }}
+                  autoComplete="new-password"
+                />
+                <input
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={adminConfirmPassword}
+                  onChange={e => { setAdminConfirmPassword(e.target.value); setError('') }}
+                  autoComplete="new-password"
+                />
+                <button type="submit" className="btn-primary" disabled={loading}>
+                  {loading ? 'Updating...' : 'Change Admin Password'}
+                </button>
+              </form>
+
+              {message && <p className="admin-success">{message}</p>}
+              {error && <p className="admin-error">{error}</p>}
+            </div>
+          ) : tab === 'dashboard' ? (
             <AdminDashboard adminUsername={adminUsername.trim().toLowerCase()} adminPassword={adminPassword} />
           ) : tab === 'import' ? (
             <BulkImport adminUsername={adminUsername.trim().toLowerCase()} adminPassword={adminPassword} />
