@@ -54,6 +54,7 @@ export default function App() {
   const [sessionToken, setSessionToken] = useState('')
   const [deviceFingerprint, setDeviceFingerprint] = useState('')
   const [pendingPasswordReset, setPendingPasswordReset] = useState(null)
+  const [adminBootstrapRequired, setAdminBootstrapRequired] = useState(false)
   const [weeklyScore, setWeeklyScore] = useState(0)
   const [gameConfig, setGameConfig] = useState(null)
   const [gameResult, setGameResult] = useState(null)
@@ -68,6 +69,12 @@ export default function App() {
     setDeviceFingerprint(fp)
     return fp
   }, [deviceFingerprint])
+
+  const refreshAdminBootstrapStatus = useCallback(async () => {
+    if (!supabase) { setAdminBootstrapRequired(false); return }
+    const { data, error } = await supabase.rpc('needs_admin_bootstrap')
+    if (!error) setAdminBootstrapRequired(Boolean(data))
+  }, [])
 
   const checkAdminStatus = useCallback(async (token, fingerprint) => {
     if (!supabase || !token || !fingerprint) { setIsAdmin(false); return }
@@ -124,6 +131,8 @@ export default function App() {
         return
       }
 
+      await refreshAdminBootstrapStatus()
+
       const savedPlayer = JSON.parse(localStorage.getItem(PLAYER_KEY) || 'null')
       const savedSession = JSON.parse(localStorage.getItem(PLAYER_SESSION_KEY) || 'null')
       if (!savedSession?.sessionToken) {
@@ -177,7 +186,7 @@ export default function App() {
     }
 
     init()
-  }, [getDeviceFingerprint, loadWeeklyScore, checkAdminStatus, resetToSignedOutState])
+  }, [getDeviceFingerprint, loadWeeklyScore, checkAdminStatus, refreshAdminBootstrapStatus, resetToSignedOutState])
 
   async function handleLocalRegister(name) {
     const normalizedName = normalizePlayerName(name)
@@ -264,6 +273,30 @@ export default function App() {
     await checkAdminStatus(pendingPasswordReset.sessionToken, fp)
     setAuthNotice('')
     setView('hub')
+  }
+
+  async function handleBootstrapAdmin(payload) {
+    if (!payload || !supabase) return
+    const { error } = await supabase.rpc('bootstrap_admin', {
+      _username: normalizeUsername(payload.username),
+      _password: payload.password,
+    })
+    if (error) throw new Error(formatAuthError(error), { cause: error })
+    await refreshAdminBootstrapStatus()
+    setAuthNotice('Admin created! Now create a player account to log in.')
+  }
+
+  async function handleCreatePlayer(payload) {
+    if (!payload || !supabase) return
+    const { error } = await supabase.rpc('admin_create_player', {
+      _admin_username: normalizeUsername(payload.adminUsername),
+      _admin_password: payload.adminPassword,
+      _player_name: normalizePlayerName(payload.playerName),
+      _player_username: normalizeUsername(payload.playerUsername),
+      _temporary_password: payload.temporaryPassword,
+    })
+    if (error) throw new Error(formatAuthError(error), { cause: error })
+    setAuthNotice(`Player "${normalizeUsername(payload.playerUsername)}" created. You can now log in.`)
   }
 
   async function handlePlay() {
@@ -374,10 +407,13 @@ export default function App() {
       <Registration
         onPlayerLogin={handlePlayerLogin}
         onSetFirstPassword={handleSetFirstPassword}
+        onBootstrapAdmin={handleBootstrapAdmin}
+        onCreatePlayer={handleCreatePlayer}
         onRegisterLocal={handleLocalRegister}
         notice={authNotice}
         requiresAuth={Boolean(supabase)}
         requiresPasswordReset={Boolean(pendingPasswordReset)}
+        adminBootstrapRequired={adminBootstrapRequired}
       />
     )
   }

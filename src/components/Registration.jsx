@@ -3,11 +3,15 @@ import { useState } from 'react'
 export default function Registration({
   onPlayerLogin,
   onSetFirstPassword,
+  onBootstrapAdmin,
+  onCreatePlayer,
   onRegisterLocal,
   notice,
   requiresAuth,
   requiresPasswordReset,
+  adminBootstrapRequired,
 }) {
+  const [panel, setPanel] = useState('player')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -18,6 +22,16 @@ export default function Registration({
 
   const [newPassword, setNewPassword] = useState('')
   const [confirmNewPassword, setConfirmNewPassword] = useState('')
+
+  const [bootstrapUsername, setBootstrapUsername] = useState('')
+  const [bootstrapPassword, setBootstrapPassword] = useState('')
+  const [bootstrapConfirmPassword, setBootstrapConfirmPassword] = useState('')
+
+  const [adminUsername, setAdminUsername] = useState('')
+  const [adminPassword, setAdminPassword] = useState('')
+  const [newPlayerName, setNewPlayerName] = useState('')
+  const [newPlayerUsername, setNewPlayerUsername] = useState('')
+  const [newPlayerPassword, setNewPlayerPassword] = useState('')
 
   async function handleLocalRegister(e) {
     e.preventDefault()
@@ -83,6 +97,224 @@ export default function Registration({
     }
   }
 
+  async function handleBootstrapAdmin(e) {
+    e.preventDefault()
+    const username = bootstrapUsername.trim().toLowerCase()
+    if (!username || !bootstrapPassword) {
+      setError('Please enter admin username and password.')
+      return
+    }
+    if (bootstrapPassword.length < 6) {
+      setError('Admin password must be at least 6 characters.')
+      return
+    }
+    if (bootstrapPassword !== bootstrapConfirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      await onBootstrapAdmin({ username, password: bootstrapPassword })
+      setBootstrapPassword('')
+      setBootstrapConfirmPassword('')
+    } catch (err) {
+      setError(err.message || 'Could not create first admin.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleCreatePlayer(e) {
+    e.preventDefault()
+    const playerName = newPlayerName.trim()
+    const playerUsernameValue = newPlayerUsername.trim().toLowerCase()
+    if (!adminUsername.trim() || !adminPassword) {
+      setError('Please enter admin credentials.')
+      return
+    }
+    if (!playerName || !playerUsernameValue || !newPlayerPassword) {
+      setError('Please fill all player fields.')
+      return
+    }
+    if (newPlayerPassword.length < 6) {
+      setError('Temporary password must be at least 6 characters.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      await onCreatePlayer({
+        adminUsername: adminUsername.trim().toLowerCase(),
+        adminPassword,
+        playerName,
+        playerUsername: playerUsernameValue,
+        temporaryPassword: newPlayerPassword,
+      })
+      setNewPlayerName('')
+      setNewPlayerUsername('')
+      setNewPlayerPassword('')
+    } catch (err) {
+      setError(err.message || 'Could not create player.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function renderAuthForm() {
+    // Step 1: First-time setup — no admin exists yet
+    if (adminBootstrapRequired) {
+      return (
+        <form onSubmit={handleBootstrapAdmin} className="reg-form">
+          <p className="otp-meta">First-time setup: create the admin account.</p>
+          <label htmlFor="bootstrap-admin-username">Admin Username</label>
+          <input
+            id="bootstrap-admin-username"
+            type="text"
+            value={bootstrapUsername}
+            onChange={e => { setBootstrapUsername(e.target.value); setError('') }}
+            placeholder="admin username"
+            autoFocus
+            autoComplete="username"
+          />
+          <label htmlFor="bootstrap-admin-password">Admin Password</label>
+          <input
+            id="bootstrap-admin-password"
+            type="password"
+            value={bootstrapPassword}
+            onChange={e => { setBootstrapPassword(e.target.value); setError('') }}
+            placeholder="min 6 characters"
+            autoComplete="new-password"
+          />
+          <label htmlFor="bootstrap-admin-confirm-password">Confirm Password</label>
+          <input
+            id="bootstrap-admin-confirm-password"
+            type="password"
+            value={bootstrapConfirmPassword}
+            onChange={e => { setBootstrapConfirmPassword(e.target.value); setError('') }}
+            placeholder="confirm password"
+            autoComplete="new-password"
+          />
+          {notice && <p className="info-msg">{notice}</p>}
+          {error && <p className="error-msg">{error}</p>}
+          <button type="submit" className="btn-primary" disabled={loading}>
+            {loading ? 'Creating...' : 'Create Admin'}
+          </button>
+        </form>
+      )
+    }
+
+    // Admin "create player" panel
+    if (panel === 'setup') {
+      return (
+        <>
+          <form onSubmit={handleCreatePlayer} className="reg-form">
+            <p className="otp-meta">Admin: create a new player account.</p>
+            <label htmlFor="admin-username">Admin Username</label>
+            <input
+              id="admin-username"
+              type="text"
+              value={adminUsername}
+              onChange={e => { setAdminUsername(e.target.value); setError('') }}
+              placeholder="admin username"
+              autoFocus
+              autoComplete="username"
+            />
+            <label htmlFor="admin-password">Admin Password</label>
+            <input
+              id="admin-password"
+              type="password"
+              value={adminPassword}
+              onChange={e => { setAdminPassword(e.target.value); setError('') }}
+              placeholder="admin password"
+              autoComplete="current-password"
+            />
+            <label htmlFor="player-name">Player Name</label>
+            <input
+              id="player-name"
+              type="text"
+              value={newPlayerName}
+              onChange={e => { setNewPlayerName(e.target.value); setError('') }}
+              placeholder="display name"
+              maxLength={20}
+              autoComplete="off"
+            />
+            <label htmlFor="player-login-username">Player Username</label>
+            <input
+              id="player-login-username"
+              type="text"
+              value={newPlayerUsername}
+              onChange={e => { setNewPlayerUsername(e.target.value); setError('') }}
+              placeholder="login username"
+              autoComplete="off"
+            />
+            <label htmlFor="player-temp-password">Temporary Password</label>
+            <input
+              id="player-temp-password"
+              type="password"
+              value={newPlayerPassword}
+              onChange={e => { setNewPlayerPassword(e.target.value); setError('') }}
+              placeholder="temporary password (min 6)"
+              autoComplete="new-password"
+            />
+            {notice && <p className="info-msg">{notice}</p>}
+            {error && <p className="error-msg">{error}</p>}
+            <button type="submit" className="btn-primary" disabled={loading}>
+              {loading ? 'Creating player...' : 'Create Player'}
+            </button>
+          </form>
+          <button
+            type="button"
+            className="btn-link"
+            onClick={() => { setPanel('player'); setError('') }}
+            style={{ marginTop: 12, fontSize: '0.85rem', color: 'var(--primary2)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            Back to Player Login
+          </button>
+        </>
+      )
+    }
+
+    // Default: player login
+    return (
+      <>
+        <form onSubmit={handlePlayerLogin} className="reg-form">
+          <label htmlFor="player-username">Username</label>
+          <input
+            id="player-username"
+            type="text"
+            value={playerUsername}
+            onChange={e => { setPlayerUsername(e.target.value); setError('') }}
+            placeholder="player username"
+            autoFocus
+            autoComplete="username"
+          />
+          <label htmlFor="player-password">Password</label>
+          <input
+            id="player-password"
+            type="password"
+            value={playerPassword}
+            onChange={e => { setPlayerPassword(e.target.value); setError('') }}
+            placeholder="password"
+            autoComplete="current-password"
+          />
+          {notice && <p className="info-msg">{notice}</p>}
+          {error && <p className="error-msg">{error}</p>}
+          <button type="submit" className="btn-primary" disabled={loading}>
+            {loading ? 'Signing in...' : 'Login'}
+          </button>
+        </form>
+        <button
+          type="button"
+          className="btn-link"
+          onClick={() => { setPanel('setup'); setError('') }}
+          style={{ marginTop: 12, fontSize: '0.85rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+        >
+          Admin: Create Player Account
+        </button>
+      </>
+    )
+  }
 
   return (
     <div className="screen-center">
@@ -104,10 +336,10 @@ export default function Registration({
               autoFocus
               autoComplete="off"
             />
-            {notice && <p className="info-msg">ℹ️ {notice}</p>}
-            {error && <p className="error-msg">⚠️ {error}</p>}
+            {notice && <p className="info-msg">{notice}</p>}
+            {error && <p className="error-msg">{error}</p>}
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? '⏳ Please wait…' : '🚀 Join & Play'}
+              {loading ? 'Please wait...' : 'Join & Play'}
             </button>
           </form>
         ) : requiresPasswordReset ? (
@@ -132,39 +364,14 @@ export default function Registration({
               minLength={6}
               autoComplete="new-password"
             />
-            {notice && <p className="info-msg">ℹ️ {notice}</p>}
-            {error && <p className="error-msg">⚠️ {error}</p>}
+            {notice && <p className="info-msg">{notice}</p>}
+            {error && <p className="error-msg">{error}</p>}
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? '⏳ Updating…' : '✅ Save Password'}
+              {loading ? 'Updating...' : 'Save Password'}
             </button>
           </form>
         ) : (
-          <form onSubmit={handlePlayerLogin} className="reg-form">
-            <label htmlFor="player-username">Username</label>
-            <input
-              id="player-username"
-              type="text"
-              value={playerUsername}
-              onChange={e => { setPlayerUsername(e.target.value); setError('') }}
-              placeholder="player username"
-              autoFocus
-              autoComplete="username"
-            />
-            <label htmlFor="player-password">Password</label>
-            <input
-              id="player-password"
-              type="password"
-              value={playerPassword}
-              onChange={e => { setPlayerPassword(e.target.value); setError('') }}
-              placeholder="password"
-              autoComplete="current-password"
-            />
-            {notice && <p className="info-msg">ℹ️ {notice}</p>}
-            {error && <p className="error-msg">⚠️ {error}</p>}
-            <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? '⏳ Signing in…' : '🔐 Login'}
-            </button>
-          </form>
+          renderAuthForm()
         )}
 
         <div className="rules-box">
