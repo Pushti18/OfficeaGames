@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase.js'
 import GameScreen from './GameScreen.jsx'
 import AchievementToast from './AchievementToast.jsx'
 import { calculateFinalScore, DIFFICULTY_CONFIG } from '../utils/scoring.js'
+import { pickQuestions } from '../utils/gameUtils.js'
+import { ALL_QUESTIONS } from '../data/gameData.js'
 import { playGameEnd } from '../utils/sounds.js'
 import { launchConfetti } from '../utils/confetti.js'
 
@@ -44,12 +46,19 @@ export default function DailyChallenge({ player, sessionToken, fingerprint, onBa
 
   function startChallenge() {
     if (!challenge) return
-    const questions = challenge.questions || []
+    const difficulty = challenge.difficulty || 'medium'
+    let questions = challenge.questions || []
+
+    // Fall back to static questions if DB returned none
+    if (!questions.length && ALL_QUESTIONS[challenge.game_type]) {
+      questions = pickQuestions(ALL_QUESTIONS[challenge.game_type], difficulty)
+    }
+
     setGameConfig({
       type: challenge.game_type,
-      difficulty: challenge.difficulty || 'medium',
+      difficulty,
       questions,
-      totalTime: DIFFICULTY_CONFIG[challenge.difficulty || 'medium']?.timeSeconds || 90,
+      totalTime: DIFFICULTY_CONFIG[difficulty]?.timeSeconds || 90,
     })
     setView('playing')
   }
