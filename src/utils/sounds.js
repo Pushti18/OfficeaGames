@@ -2,6 +2,16 @@
 const AudioCtx = window.AudioContext || window.webkitAudioContext
 let ctx = null
 
+const SOUND_KEY = 'og_sound_muted'
+
+export function isMuted() {
+  return localStorage.getItem(SOUND_KEY) === 'true'
+}
+
+export function setMuted(muted) {
+  localStorage.setItem(SOUND_KEY, muted ? 'true' : 'false')
+}
+
 function getCtx() {
   if (!ctx) ctx = new AudioCtx()
   if (ctx.state === 'suspended') ctx.resume()
@@ -10,6 +20,7 @@ function getCtx() {
 
 function playTone(freq, duration, type = 'sine', volume = 0.3) {
   try {
+    if (isMuted()) return
     const c = getCtx()
     const osc = c.createOscillator()
     const gain = c.createGain()

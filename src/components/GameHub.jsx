@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase.js'
 import { getPlayStatus } from '../hooks/usePlayLimit.js'
 import { DIFFICULTY_CONFIG, getDifficultyFromScore } from '../utils/scoring.js'
 import { GAME_META } from '../utils/gameUtils.js'
+import { isMuted, setMuted } from '../utils/sounds.js'
 import QuestionManager from './QuestionManager.jsx'
 import AdminDashboard from './AdminDashboard.jsx'
 import BulkImport from './BulkImport.jsx'
@@ -40,6 +41,11 @@ function AdminPanel() {
   const [adminCurrentPassword, setAdminCurrentPassword] = useState('')
   const [adminNewPassword, setAdminNewPassword] = useState('')
   const [adminConfirmPassword, setAdminConfirmPassword] = useState('')
+
+  // Player list state
+  const [playerList, setPlayerList] = useState([])
+  const [playerListLoading, setPlayerListLoading] = useState(false)
+  const [playerSearch, setPlayerSearch] = useState('')
 
   async function handleAdminAuth(e) {
     e.preventDefault()
@@ -110,25 +116,103 @@ function AdminPanel() {
       setError('Password must be at least 6 characters.')
       return
     }
-    setLoading(true)
-    setError('')
-    setMessage('')
+    const targetUser = pwTargetUsername.trim().toLowerCase()
+    const newPw = pwNewPassword
+    setConfirmAction({
+      message: `Reset password for player "${targetUser}"?`,
+      onConfirm: async () => {
+        setConfirmAction(null)
+        setLoading(true)
+        setError('')
+        setMessage('')
+        try {
+          const { error: rpcError } = await supabase.rpc('admin_update_player_password', {
+            _admin_username: adminUsername.trim().toLowerCase(),
+            _admin_password: adminPassword,
+            _player_username: targetUser,
+            _new_password: newPw,
+          })
+          if (rpcError) throw rpcError
+          setMessage(`Password reset for "${targetUser}".`)
+          setPwTargetUsername('')
+          setPwNewPassword('')
+        } catch (err) {
+          setError(err?.message || 'Failed to reset password.')
+        } finally {
+          setLoading(false)
+        }
+      },
+    })
+  }
+
+  async function fetchPlayerList() {
+    setPlayerListLoading(true)
     try {
-      const { error: rpcError } = await supabase.rpc('admin_update_player_password', {
+      const { data, error: rpcError } = await supabase.rpc('admin_list_players', {
         _admin_username: adminUsername.trim().toLowerCase(),
         _admin_password: adminPassword,
-        _player_username: pwTargetUsername.trim().toLowerCase(),
-        _new_password: pwNewPassword,
       })
       if (rpcError) throw rpcError
-      setMessage(`Password reset for "${pwTargetUsername.trim().toLowerCase()}".`)
-      setPwTargetUsername('')
-      setPwNewPassword('')
+      setPlayerList(data || [])
     } catch (err) {
-      setError(err?.message || 'Failed to reset password.')
+      setError(err?.message || 'Failed to load players.')
     } finally {
-      setLoading(false)
+      setPlayerListLoading(false)
     }
+  }
+
+  // Confirm dialog state
+  const [confirmAction, setConfirmAction] = useState(null)
+
+  async function handleDeletePlayer(username) {
+    setConfirmAction({
+      message: `Are you sure you want to delete player "${username}"? This cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmAction(null)
+        setLoading(true)
+        setError('')
+        setMessage('')
+        try {
+          const { error: rpcError } = await supabase.rpc('admin_delete_player', {
+            _admin_username: adminUsername.trim().toLowerCase(),
+            _admin_password: adminPassword,
+            _player_username: username,
+          })
+          if (rpcError) throw rpcError
+          setMessage(`Player "${username}" deleted.`)
+          fetchPlayerList()
+        } catch (err) {
+          setError(err?.message || 'Failed to delete player.')
+        } finally {
+          setLoading(false)
+        }
+      },
+    })
+  }
+
+  async function handleResetDevice(username) {
+    setConfirmAction({
+      message: `Reset device binding for "${username}"? They will need to log in again from their new device.`,
+      onConfirm: async () => {
+        setConfirmAction(null)
+        setLoading(true)
+        setError('')
+        setMessage('')
+        try {
+          const { error: rpcError } = await supabase.rpc('admin_reset_player_device', {
+            _admin_username: adminUsername.trim().toLowerCase(),
+            _admin_password: adminPassword,
+            _player_username: username,
+          })
+          if (rpcError) throw rpcError
+          setMessage(`Device binding reset for "${username}".`)
+        } catch (err) {
+          setError(err?.message || 'Failed to reset device.')
+        } finally {
+          setLoading(false)
+        }
+      },
+    })
   }
 
   async function handleChangeAdminPassword(e) {
@@ -203,8 +287,11 @@ function AdminPanel() {
       ) : (
         <>
           <div className="admin-tabs">
+            <button className={`admin-tab ${tab === 'playerlist' ? 'active' : ''}`} onClick={() => { setTab('playerlist'); fetchPlayerList() }}>
+              Players
+            </button>
             <button className={`admin-tab ${tab === 'players' ? 'active' : ''}`} onClick={() => setTab('players')}>
-              Add Players
+              Add Player
             </button>
             <button className={`admin-tab ${tab === 'questions' ? 'active' : ''}`} onClick={() => setTab('questions')}>
               Questions
@@ -220,7 +307,74 @@ function AdminPanel() {
             </button>
           </div>
 
-          {tab === 'passwords' ? (
+          {tab === 'playerlist' ? (
+            <div className="admin-player-list">
+              <input
+                type="text"
+                className="admin-search-input"
+                placeholder="Search players..."
+                value={playerSearch}
+                onChange={e => setPlayerSearch(e.target.value)}
+              />
+              {playerListLoading ? (
+                <p style={{ color: 'var(--muted)', textAlign: 'center' }}>Loading players...</p>
+              ) : playerList.length === 0 ? (
+                <p style={{ color: 'var(--muted)', textAlign: 'center' }}>No players found.</p>
+              ) : (() => {
+                const filtered = playerList.filter(p =>
+                  p.name?.toLowerCase().includes(playerSearch.toLowerCase()) ||
+                  p.username?.toLowerCase().includes(playerSearch.toLowerCase())
+                )
+                return filtered.length === 0 ? (
+                  <p style={{ color: 'var(--muted)', textAlign: 'center' }}>No matching players.</p>
+                ) : (
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Username</th>
+                        <th>Created</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((p, i) => (
+                        <tr key={p.id || i}>
+                          <td>{i + 1}</td>
+                          <td>{p.name}</td>
+                          <td>{p.username}</td>
+                          <td>{p.created_at ? new Date(p.created_at).toLocaleDateString() : '-'}</td>
+                          <td style={{ display: 'flex', gap: 4 }}>
+                            <button
+                              className="btn-action-sm"
+                              onClick={() => handleResetDevice(p.username)}
+                              disabled={loading}
+                              title="Reset device binding"
+                            >
+                              📱
+                            </button>
+                            <button
+                              className="btn-delete-sm"
+                              onClick={() => handleDeletePlayer(p.username)}
+                              disabled={loading}
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )
+              })()}
+              <button className="btn-primary" onClick={fetchPlayerList} disabled={playerListLoading} style={{ marginTop: 8 }}>
+                {playerListLoading ? 'Refreshing...' : 'Refresh'}
+              </button>
+              {message && <p className="admin-success">{message}</p>}
+              {error && <p className="admin-error">{error}</p>}
+            </div>
+          ) : tab === 'passwords' ? (
             <div className="admin-form" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <h4 style={{ color: 'var(--primary2)', margin: 0 }}>Reset Player Password</h4>
               <form onSubmit={handleResetPlayerPassword} className="admin-form">
@@ -313,6 +467,18 @@ function AdminPanel() {
           ) : (
             <QuestionManager adminUsername={adminUsername.trim().toLowerCase()} adminPassword={adminPassword} />
           )}
+
+          {confirmAction && (
+            <div className="confirm-overlay">
+              <div className="confirm-dialog">
+                <p>{confirmAction.message}</p>
+                <div className="confirm-actions">
+                  <button className="btn-confirm-yes" onClick={confirmAction.onConfirm}>Yes, Delete</button>
+                  <button className="btn-confirm-no" onClick={() => setConfirmAction(null)}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -322,6 +488,13 @@ function AdminPanel() {
 export default function GameHub({ player, weeklyScore, isAdmin, onPlay, onLeaderboard, onStats, onDaily, onLogout }) {
   const [playStatus, setPlayStatus] = useState(getPlayStatus())
   const [countdown, setCountdown] = useState('')
+  const [muted, setMutedState] = useState(isMuted())
+
+  function toggleMute() {
+    const next = !muted
+    setMutedState(next)
+    setMuted(next)
+  }
 
   const difficulty = getDifficultyFromScore(weeklyScore)
   const diffCfg = DIFFICULTY_CONFIG[difficulty]
@@ -345,7 +518,13 @@ export default function GameHub({ player, weeklyScore, isAdmin, onPlay, onLeader
       <div className="hub-container">
         <header className="hub-header">
           <div className="hub-title">🎮 Office<span className="accent">Games</span></div>
-          <div className="hub-player">👤 {player.name}</div>
+          <div className="hub-header-right">
+            <button className="btn-mute" onClick={toggleMute} title={muted ? 'Unmute' : 'Mute'}>
+              {muted ? '🔇' : '🔊'}
+            </button>
+            <span className="hub-player">👤 {player.name}</span>
+            <button className="btn-logout-top" onClick={onLogout}>🚪 Logout</button>
+          </div>
         </header>
 
         <div className="stats-row">
@@ -407,10 +586,6 @@ export default function GameHub({ player, weeklyScore, isAdmin, onPlay, onLeader
         </button>
 
         {supabase && isAdmin && <AdminPanel />}
-
-        <button className="btn-logout" onClick={onLogout}>
-          🚪 Logout
-        </button>
       </div>
     </div>
   )

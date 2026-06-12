@@ -126,6 +126,7 @@ export default function QuestionManager({ adminUsername, adminPassword }) {
   const [loading, setLoading] = useState(false)
   const [listLoading, setListLoading] = useState(false)
   const [showList, setShowList] = useState(false)
+  const [confirmAction, setConfirmAction] = useState(null)
 
   function updateField(key, value) {
     setFields(prev => ({ ...prev, [key]: value }))
@@ -200,18 +201,24 @@ export default function QuestionManager({ adminUsername, adminPassword }) {
     }
   }
 
-  async function handleDelete(id) {
-    try {
-      const { error: rpcError } = await supabase.rpc('admin_delete_question', {
-        _admin_username: adminUsername,
-        _admin_password: adminPassword,
-        _question_id: id,
-      })
-      if (rpcError) throw rpcError
-      loadQuestions()
-    } catch (err) {
-      setError(err?.message || 'Failed to delete question.')
-    }
+  function handleDelete(id) {
+    setConfirmAction({
+      message: 'Are you sure you want to delete this question?',
+      onConfirm: async () => {
+        setConfirmAction(null)
+        try {
+          const { error: rpcError } = await supabase.rpc('admin_delete_question', {
+            _admin_username: adminUsername,
+            _admin_password: adminPassword,
+            _question_id: id,
+          })
+          if (rpcError) throw rpcError
+          loadQuestions()
+        } catch (err) {
+          setError(err?.message || 'Failed to delete question.')
+        }
+      },
+    })
   }
 
   const fieldDefs = GAME_FIELDS[gameType] || []
@@ -282,6 +289,18 @@ export default function QuestionManager({ adminUsername, adminPassword }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {confirmAction && (
+        <div className="confirm-overlay">
+          <div className="confirm-dialog">
+            <p>{confirmAction.message}</p>
+            <div className="confirm-actions">
+              <button className="btn-confirm-yes" onClick={confirmAction.onConfirm}>Yes, Delete</button>
+              <button className="btn-confirm-no" onClick={() => setConfirmAction(null)}>Cancel</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

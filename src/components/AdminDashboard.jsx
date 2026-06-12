@@ -6,6 +6,9 @@ export default function AdminDashboard({ adminUsername, adminPassword }) {
   const [topPlayers, setTopPlayers] = useState([])
   const [questionStats, setQuestionStats] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selectedPlayer, setSelectedPlayer] = useState(null)
+  const [playerHistory, setPlayerHistory] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   useEffect(() => { loadStats() }, [])
 
@@ -25,6 +28,23 @@ export default function AdminDashboard({ adminUsername, adminPassword }) {
       if (qStatsRes.data) setQuestionStats(qStatsRes.data)
     } catch (_) {}
     setLoading(false)
+  }
+
+  async function viewPlayerHistory(playerName) {
+    setSelectedPlayer(playerName)
+    setHistoryLoading(true)
+    try {
+      const { data, error } = await supabase.rpc('admin_get_player_history', {
+        _admin_username: adminUsername,
+        _admin_password: adminPassword,
+        _player_name: playerName,
+      })
+      if (error) throw error
+      setPlayerHistory(data || [])
+    } catch (_) {
+      setPlayerHistory([])
+    }
+    setHistoryLoading(false)
   }
 
   if (loading) return <div className="loading-spinner">⏳ Loading dashboard...</div>
@@ -59,7 +79,7 @@ export default function AdminDashboard({ adminUsername, adminPassword }) {
           {topPlayers.map((p, i) => (
             <div key={p.player_name} className="admin-top-item">
               <span className="admin-top-rank">{['🥇','🥈','🥉'][i] || `#${i+1}`}</span>
-              <span className="admin-top-name">{p.player_name}</span>
+              <span className="admin-top-name clickable" onClick={() => viewPlayerHistory(p.player_name)}>{p.player_name}</span>
               <span className="admin-top-score">{p.total_score} pts</span>
               <span className="admin-top-games">{p.total_games} games</span>
             </div>
@@ -67,6 +87,41 @@ export default function AdminDashboard({ adminUsername, adminPassword }) {
         </div>
       ) : (
         <p className="qm-empty">No player data yet.</p>
+      )}
+
+      {selectedPlayer && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 className="admin-section-title">📋 {selectedPlayer}'s Game History</h3>
+            <button className="btn-delete-sm" style={{ color: 'var(--muted)', borderColor: 'var(--border)' }} onClick={() => setSelectedPlayer(null)}>Close</button>
+          </div>
+          {historyLoading ? (
+            <p style={{ color: 'var(--muted)', textAlign: 'center' }}>Loading...</p>
+          ) : playerHistory.length === 0 ? (
+            <p className="qm-empty">No games played yet.</p>
+          ) : (
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Game</th>
+                  <th>Score</th>
+                  <th>Difficulty</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {playerHistory.map((g, i) => (
+                  <tr key={i}>
+                    <td>{g.game_type}</td>
+                    <td>{g.score}</td>
+                    <td>{g.difficulty}</td>
+                    <td>{new Date(g.played_at).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       )}
 
       <h3 className="admin-section-title">📝 Question Pool Health</h3>

@@ -306,6 +306,89 @@ h1 {
 }
 .btn-logout:hover { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.08); }
 
+.hub-header-right {
+  display: flex; align-items: center; gap: 10px;
+}
+.btn-logout-top {
+  padding: 6px 12px; background: transparent; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 8px;
+  font-size: 0.8rem; font-weight: 500; cursor: pointer;
+  transition: all var(--transition-fast); white-space: nowrap;
+}
+.btn-logout-top:hover { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.08); }
+
+.btn-mute {
+  padding: 6px 10px; background: transparent; color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  font-size: 1rem; cursor: pointer; transition: all var(--transition-fast);
+  line-height: 1;
+}
+.btn-mute:hover { border-color: var(--primary); background: rgba(14,165,233,0.08); }
+
+.admin-table {
+  width: 100%; border-collapse: collapse; font-size: 0.85rem;
+}
+.admin-table th {
+  text-align: left; padding: 8px 10px; color: #f59e0b;
+  border-bottom: 1px solid var(--border); font-weight: 600;
+}
+.admin-table td {
+  padding: 7px 10px; color: var(--text);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.admin-table tr:hover td { background: rgba(245,158,11,0.05); }
+
+.btn-delete-sm {
+  padding: 4px 10px; font-size: 0.75rem; font-weight: 600;
+  background: transparent; color: #ef4444; border: 1px solid #ef4444;
+  border-radius: 6px; cursor: pointer; transition: all var(--transition-fast);
+}
+.btn-delete-sm:hover { background: rgba(239,68,68,0.15); }
+.btn-delete-sm:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-action-sm {
+  padding: 4px 8px; font-size: 0.85rem;
+  background: transparent; color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; cursor: pointer; transition: all var(--transition-fast);
+  line-height: 1;
+}
+.btn-action-sm:hover { border-color: var(--primary); background: rgba(14,165,233,0.1); }
+.btn-action-sm:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.confirm-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6); display: flex; align-items: center;
+  justify-content: center; z-index: 1000; backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s;
+}
+.confirm-dialog {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 24px; max-width: 360px; width: 90%;
+  text-align: center;
+}
+.confirm-dialog p { color: var(--text); font-size: 0.95rem; margin: 0 0 16px; }
+.confirm-actions { display: flex; gap: 10px; justify-content: center; }
+.btn-confirm-yes {
+  padding: 8px 20px; background: #ef4444; color: #fff; border: none;
+  border-radius: 8px; font-weight: 600; cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.btn-confirm-yes:hover { background: #dc2626; }
+.btn-confirm-no {
+  padding: 8px 20px; background: transparent; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 8px; font-weight: 600;
+  cursor: pointer; transition: all var(--transition-fast);
+}
+.btn-confirm-no:hover { color: var(--text); border-color: var(--muted); }
+
+.admin-search-input {
+  width: 100%; padding: 9px 12px; border-radius: 8px; margin-bottom: 10px;
+  border: 1px solid var(--border); background: rgba(30,41,59,0.7);
+  color: var(--text); font-size: 0.85rem; box-sizing: border-box;
+  transition: border-color var(--transition-fast);
+}
+.admin-search-input:focus { border-color: #f59e0b; outline: none; box-shadow: 0 0 0 3px rgba(245,158,11,0.1); }
+
 .btn-admin-toggle {
   width: 100%; padding: 14px; margin: 6px 0;
   background: transparent; color: #f59e0b;
@@ -1044,6 +1127,8 @@ h1 {
 .admin-top-item:hover { background: rgba(30,41,59,0.8); }
 .admin-top-rank { width: 28px; text-align: center; }
 .admin-top-name { flex: 1; color: var(--text); }
+.admin-top-name.clickable { cursor: pointer; text-decoration: underline; text-decoration-color: transparent; transition: all var(--transition-fast); }
+.admin-top-name.clickable:hover { color: #f59e0b; text-decoration-color: #f59e0b; }
 .admin-top-score { color: var(--yellow); font-weight: 600; }
 .admin-top-games { color: var(--muted); font-size: 0.75rem; }
 .admin-q-stats { display: flex; flex-direction: column; gap: 4px; }
