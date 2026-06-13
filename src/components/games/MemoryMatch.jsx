@@ -2,7 +2,15 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Timer from '../Timer.jsx'
 import { playMatch, playWrong, playClick } from '../../utils/sounds.js'
 
-const EMOJI_POOL = ['🎮','🎯','🎪','🎨','🎭','🎵','🎸','🎺','🎻','🎬','🏆','🌟','🌈','🎂','🎁','🔮','🎲','🧩','🎰','🎳']
+const EMOJI_POOL = [
+  '🎮','🎯','🎪','🎨','🎭','🎵','🎸','🎺','🎻','🎬',
+  '🏆','🌟','🌈','🎂','🎁','🔮','🎲','🧩','🎰','🎳',
+  '🚀','🦊','🐙','🦋','🌻','🍕','🎧','🏀','🎹','🦄',
+  '🐋','🦅','🌍','🔥','💎','🍀','🎡','🏖','🦁','🐲',
+  '🌸','🍩','🎤','🏈','🛸','🦉','🐬','🌮','🧭','🏔',
+  '🦜','🍭','🎿','🏄','🧲','🦚','🐝','🌴','🧬','🏰',
+  '🦈','🍉','🪐','🏋','🧪','🦩','🐺','🌺','🎠','🗿',
+]
 const PAIRS = { easy: 6, medium: 8, hard: 10 }
 const COLS = { easy: 4, medium: 4, hard: 5 }
 

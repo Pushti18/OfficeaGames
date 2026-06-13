@@ -2,24 +2,65 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Timer from '../Timer.jsx'
 import { getHintPenaltyPerUse } from '../../utils/scoring.js'
 
+const EASY_WORD_POOL = [
+  'REACT', 'CODE', 'LOOP', 'BYTE', 'NODE', 'DATA',
+  'JAVA', 'RUBY', 'BASH', 'LINK', 'PUSH', 'PULL',
+  'CHAT', 'PLAY', 'GAME', 'GRID', 'SORT', 'LIST',
+  'FILE', 'PIPE', 'FORK', 'HEAP', 'TREE', 'SWAP',
+  'FLAG', 'PORT', 'HOST', 'LOAD', 'SAVE', 'COPY',
+  'EDIT', 'FIND', 'LOCK', 'HASH', 'SEED', 'UNIT',
+  'CALL', 'READ', 'WIRE', 'DISK', 'ICON', 'MASK',
+  'BOLT', 'CLIP', 'FUSE', 'MAZE', 'PATH', 'PLOT',
+  'SCAN', 'SIGN', 'SLOT', 'STAR', 'UNDO', 'VOID',
+  'WRAP', 'ZOOM', 'BANK', 'CORE',
+]
+
+const MEDIUM_WORD_POOL = [
+  'PYTHON', 'GITHUB', 'DOCKER', 'BINARY', 'SYNTAX', 'ASYNC', 'ARRAY', 'DEBUG',
+  'CURSOR', 'FILTER', 'KERNEL', 'MODULE', 'OBJECT', 'PACKET', 'ROUTER', 'SCRIPT',
+  'SERVER', 'SOCKET', 'SPIDER', 'STREAM', 'STRING', 'SWITCH', 'THREAD', 'TOGGLE',
+  'VERTEX', 'WIDGET', 'CIPHER', 'CLIENT', 'DECODE', 'DEPLOY', 'DRIVER', 'ENCODE',
+  'ENGINE', 'EXPORT', 'IMPORT', 'LAMBDA', 'LAYOUT', 'MATRIX', 'METHOD', 'PARSER',
+  'PRAGMA', 'RANDOM', 'RENDER', 'RETURN', 'SEARCH', 'SELECT', 'SIGNAL', 'STATIC',
+  'STRUCT', 'TENSOR', 'UPDATE', 'VECTOR', 'BRANCH', 'BUFFER', 'BUTTON', 'CANVAS',
+  'COLUMN', 'DOMAIN',
+]
+
+const HARD_WORD_POOL = [
+  'ALGORITHM', 'DATABASE', 'FUNCTION', 'VARIABLE', 'INTERFACE', 'COMPILED', 'FRAMEWORK', 'PROTOCOL', 'RECURSION', 'CONTAINER',
+  'ABSTRACT', 'CALLBACK', 'COMPILER', 'CONFLICT', 'CONSTANT', 'DEBUGGER', 'DISPATCH', 'ENDPOINT', 'ETHERNET', 'EXPLICIT',
+  'FIRMWARE', 'FRONTEND', 'GENERATE', 'GRADIENT', 'HARDWARE', 'IMPLICIT', 'INDEXING', 'INSTANCE', 'ITERATOR', 'KEYBOARD',
+  'LISTENER', 'METADATA', 'MODIFIER', 'MUTATION', 'NAVIGATE', 'OBSERVER', 'OPERATOR', 'OPTIMIZE', 'OVERHEAD', 'OVERFLOW',
+  'PARALLEL', 'PIPELINE', 'PLATFORM', 'POLYMORP', 'PREDATOR', 'REACTIVE', 'REDIRECT', 'REGISTER', 'RENDERER', 'RESOLVER',
+  'ROLLBACK', 'SELECTOR', 'SEQUENCE', 'SIMULATE', 'SNAPSHOT', 'SOFTWARE', 'SPLITTER', 'TEMPLATE', 'TERMINAL', 'THROTTLE',
+]
+
+function pickWords(pool, count) {
+  const shuffled = [...pool].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, count)
+}
+
 const WS_CONFIG = {
   easy: {
     size: 8,
-    words: ['REACT', 'CODE', 'LOOP', 'BYTE', 'NODE', 'DATA'],
+    wordPool: EASY_WORD_POOL,
+    wordCount: 6,
     dirs: [[0,1],[1,0],[0,-1],[-1,0]],
-    label: '8×8 • Horizontal & Vertical',
+    label: '8x8 - Horizontal & Vertical',
   },
   medium: {
     size: 10,
-    words: ['PYTHON', 'GITHUB', 'DOCKER', 'BINARY', 'SYNTAX', 'ASYNC', 'ARRAY', 'DEBUG'],
+    wordPool: MEDIUM_WORD_POOL,
+    wordCount: 8,
     dirs: [[0,1],[1,0],[0,-1],[-1,0],[1,1],[-1,1],[1,-1],[-1,-1]],
-    label: '10×10 • All directions',
+    label: '10x10 - All directions',
   },
   hard: {
     size: 12,
-    words: ['ALGORITHM', 'DATABASE', 'FUNCTION', 'VARIABLE', 'INTERFACE', 'COMPILED', 'FRAMEWORK', 'PROTOCOL', 'RECURSION', 'CONTAINER'],
+    wordPool: HARD_WORD_POOL,
+    wordCount: 10,
     dirs: [[0,1],[1,0],[0,-1],[-1,0],[1,1],[-1,1],[1,-1],[-1,-1]],
-    label: '12×12 • All directions + reversed',
+    label: '12x12 - All directions + reversed',
   },
 }
 
@@ -124,8 +165,10 @@ export default function WordSearch({ difficulty, totalTime, onEnd }) {
   const colorIdx = useRef(0)
   const hintPenaltyPerUse = getHintPenaltyPerUse(difficulty)
 
+  const [words] = useState(() => pickWords(cfg.wordPool, cfg.wordCount))
+
   useEffect(() => {
-    const p = generateWordSearch(cfg.size, cfg.words, cfg.dirs, difficulty === 'hard')
+    const p = generateWordSearch(cfg.size, words, cfg.dirs, difficulty === 'hard')
     setPuzzle(p)
   }, [])
 
@@ -350,12 +393,12 @@ export default function WordSearch({ difficulty, totalTime, onEnd }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
         <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{cfg.label}</span>
         <span style={{ fontSize: '0.85rem', color: 'var(--yellow)', fontWeight: 600 }}>
-          {foundWords.length}/{cfg.words.length} found
+          {foundWords.length}/{words.length} found
         </span>
       </div>
 
       <div className="game-tools">
-        <button className="btn-secondary small" onClick={useHint} disabled={ended || !puzzle || foundWords.length === cfg.words.length}>
+        <button className="btn-secondary small" onClick={useHint} disabled={ended || !puzzle || foundWords.length === words.length}>
           💡 Reveal Start Cell (-{hintPenaltyPerUse})
         </button>
       </div>
@@ -434,7 +477,7 @@ export default function WordSearch({ difficulty, totalTime, onEnd }) {
 
       {/* Word list */}
       <div className="ws-word-list">
-        {cfg.words.map(word => {
+        {words.map(word => {
           const found = foundWords.find(f => f.word === word)
           return (
             <span
