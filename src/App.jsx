@@ -310,8 +310,12 @@ export default function App() {
 
     let questions = []
     if (!selfGenerating) {
-      // Try DB first, fall back to static
-      if (supabase) {
+      // Use static pool first (larger pool, better randomization)
+      if (ALL_QUESTIONS[gameType]) {
+        questions = pickQuestions(ALL_QUESTIONS[gameType], difficulty)
+      }
+      // Fall back to DB if no static questions available
+      if (!questions.length && supabase) {
         const { data } = await supabase.rpc('get_game_questions', {
           _game_type: gameType,
           _difficulty: difficulty,
@@ -320,9 +324,6 @@ export default function App() {
         if (data?.length) {
           questions = data.map((q, i) => ({ id: `db_${i}`, difficulty, ...q }))
         }
-      }
-      if (!questions.length && ALL_QUESTIONS[gameType]) {
-        questions = pickQuestions(ALL_QUESTIONS[gameType], difficulty)
       }
     }
 
