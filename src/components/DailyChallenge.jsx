@@ -84,7 +84,7 @@ export default function DailyChallenge({ player, sessionToken, fingerprint, onBa
     if (supabase && sessionToken) {
       try {
         // Record score and award daily achievements in one transaction
-        const { data: dailyAch } = await supabase.rpc('record_daily_score', {
+        const { data: dailyAch, error: dailyErr } = await supabase.rpc('record_daily_score', {
           _session_token: sessionToken,
           _fp_hash: fingerprint,
           _challenge_date: today,
@@ -92,6 +92,7 @@ export default function DailyChallenge({ player, sessionToken, fingerprint, onBa
           _correct: correct,
           _wrong: wrong,
         })
+        if (dailyErr) console.error('Daily score recording failed:', dailyErr)
         const lbRes = await supabase.rpc('get_daily_leaderboard', { _challenge_date: today })
         if (lbRes.data) setLeaderboard(lbRes.data)
 
@@ -99,7 +100,7 @@ export default function DailyChallenge({ player, sessionToken, fingerprint, onBa
         const totalTime = DIFFICULTY_CONFIG[difficulty]?.timeSeconds || 90
         const timeRemainingPct = answers.length > 0 && answers[answers.length - 1].timeLeft != null
           ? (answers[answers.length - 1].timeLeft / totalTime) * 100 : 0
-        const { data: otherAch } = await supabase.rpc('check_and_award_achievements', {
+        const { data: otherAch, error: achErr } = await supabase.rpc('check_and_award_achievements', {
           _session_token: sessionToken,
           _fp_hash: fingerprint,
           _game_score: total,
@@ -108,6 +109,7 @@ export default function DailyChallenge({ player, sessionToken, fingerprint, onBa
           _difficulty: difficulty,
           _time_remaining_pct: Math.round(timeRemainingPct),
         })
+        if (achErr) console.error('Achievement check failed:', achErr)
 
         // Merge daily + other achievements, deduplicate by id
         const allEarned = [...(dailyAch || []), ...(otherAch || [])]
@@ -123,7 +125,7 @@ export default function DailyChallenge({ player, sessionToken, fingerprint, onBa
           icon: a.new_icon || a.icon,
         }))
         if (unique.length) setEarnedAchievements(unique)
-      } catch (_) {}
+      } catch (e) { console.error('Daily challenge error:', e) }
     }
   }, [challenge, sessionToken, fingerprint, today])
 

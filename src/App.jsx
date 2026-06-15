@@ -364,7 +364,7 @@ export default function App() {
         const timeRemainingPct = answers.length > 0 && answers[answers.length - 1].timeLeft != null
           ? (answers[answers.length - 1].timeLeft / gameConfig.totalTime) * 100
           : 0
-        const { data: earned } = await supabase.rpc('check_and_award_achievements', {
+        const { data: earned, error: achErr } = await supabase.rpc('check_and_award_achievements', {
           _session_token: sessionToken,
           _fp_hash: fp,
           _game_score: total,
@@ -373,8 +373,9 @@ export default function App() {
           _difficulty: gameConfig.difficulty,
           _time_remaining_pct: Math.round(timeRemainingPct),
         })
+        if (achErr) console.error('Achievement check failed:', achErr)
         if (earned?.length) setNewAchievements(earned)
-      } catch (_) { /* achievement check is non-critical */ }
+      } catch (e) { console.error('Achievement check error:', e) }
     }
 
     setWeeklyScore(prev => prev + total)
