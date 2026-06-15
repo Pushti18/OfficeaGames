@@ -3,7 +3,7 @@ import { supabase } from './lib/supabase.js'
 import { generateFingerprint } from './utils/fingerprint.js'
 import { getDifficultyFromScore, calculateFinalScore, DIFFICULTY_CONFIG } from './utils/scoring.js'
 import { pickRandomGame, pickQuestions } from './utils/gameUtils.js'
-import { getPlayStatus, recordPlay, getLastGameType, setLastGameType } from './hooks/usePlayLimit.js'
+import { getPlayStatus, getLastGameType, setLastGameType } from './hooks/usePlayLimit.js'
 import { getWeekStart } from './utils/weeklyReset.js'
 import { ALL_QUESTIONS } from './data/gameData.js'
 import Registration from './components/Registration.jsx'
@@ -300,7 +300,8 @@ export default function App() {
   }
 
   async function handlePlay() {
-    const status = getPlayStatus(player?.id)
+    const fp = deviceFingerprint || await getDeviceFingerprint()
+    const status = await getPlayStatus(player?.id, sessionToken, fp)
     if (status.playsRemaining <= 0) return
     gameEndedRef.current = false
     const gameType = pickRandomGame(getLastGameType())
@@ -342,7 +343,6 @@ export default function App() {
     const { answers, hintsUsed } = normalized
     const { total, correct, wrong, hintPenalty } = calculateFinalScore(answers, gameConfig.difficulty, hintsUsed)
 
-    recordPlay(player?.id, gameConfig.type)
     setLastGameType(gameConfig.type)
 
     if (supabase && player?.id && sessionToken) {
@@ -420,7 +420,7 @@ export default function App() {
     )
   }
 
-  if (view === 'hub') return <GameHub player={player} weeklyScore={weeklyScore} isAdmin={isAdmin} onPlay={handlePlay} onLeaderboard={() => setView('leaderboard')} onStats={() => setView('stats')} onDaily={() => setView('daily')} onLogout={resetToSignedOutState} />
+  if (view === 'hub') return <GameHub player={player} weeklyScore={weeklyScore} isAdmin={isAdmin} onPlay={handlePlay} onLeaderboard={() => setView('leaderboard')} onStats={() => setView('stats')} onDaily={() => setView('daily')} onLogout={resetToSignedOutState} sessionToken={sessionToken} fingerprint={deviceFingerprint} />
   if (view === 'game') return <GameScreen config={gameConfig} onEnd={handleGameEnd} onClose={handleCloseGame} />
   const achievementToast = (
     <AchievementToast
@@ -430,10 +430,9 @@ export default function App() {
   )
 
   if (view === 'result') {
-    const { playsRemaining } = getPlayStatus(player?.id)
     return <>
       {achievementToast}
-      <GameResult result={gameResult} playsRemaining={playsRemaining} onPlayAgain={handlePlay} onHub={() => setView('hub')} onLeaderboard={() => setView('leaderboard')} />
+      <GameResult result={gameResult} playerId={player?.id} sessionToken={sessionToken} fingerprint={deviceFingerprint} onPlayAgain={handlePlay} onHub={() => setView('hub')} onLeaderboard={() => setView('leaderboard')} />
     </>
   }
   if (view === 'stats') return <PlayerStats player={player} sessionToken={sessionToken} fingerprint={deviceFingerprint} onBack={() => setView('hub')} />

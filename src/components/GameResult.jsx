@@ -1,19 +1,22 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { GAME_META } from '../utils/gameUtils.js'
 import { DIFFICULTY_CONFIG as DC } from '../utils/scoring.js'
 import { launchConfetti } from '../utils/confetti.js'
 import { playGameEnd } from '../utils/sounds.js'
+import { getPlayStatus } from '../hooks/usePlayLimit.js'
 
-export default function GameResult({ result, onPlayAgain, onHub, onLeaderboard, playsRemaining }) {
+export default function GameResult({ result, onPlayAgain, onHub, onLeaderboard, playerId, sessionToken, fingerprint }) {
   const { score, correct, wrong, gameType, difficulty, hintsUsed = 0, hintPenalty = 0 } = result
   const meta = GAME_META[gameType]
   const diffCfg = DC[difficulty]
   const total = correct + wrong
   const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0
+  const [playsRemaining, setPlaysRemaining] = useState(0)
 
   useEffect(() => {
     playGameEnd()
     if (accuracy >= 70) launchConfetti()
+    getPlayStatus(playerId, sessionToken, fingerprint).then(s => setPlaysRemaining(s.playsRemaining))
   }, [])
 
   const grade =

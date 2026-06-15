@@ -528,6 +528,33 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.get_play_status(_session_token UUID, _fp_hash TEXT)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, private
+AS $$
+DECLARE
+  v_player_id UUID;
+  v_cutoff TIMESTAMPTZ := NOW() - INTERVAL '8 hours';
+  v_count INTEGER;
+  v_oldest_played_at TIMESTAMPTZ;
+BEGIN
+  v_player_id := private.resolve_player_session(_session_token, _fp_hash);
+
+  SELECT COUNT(*), MIN(played_at)
+  INTO v_count, v_oldest_played_at
+  FROM public.game_sessions
+  WHERE player_id = v_player_id
+    AND played_at > v_cutoff;
+
+  RETURN json_build_object(
+    'recent_count', v_count,
+    'oldest_played_at', v_oldest_played_at
+  );
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.get_weekly_leaderboard(_week_start DATE)
 RETURNS TABLE (
   name TEXT,
@@ -636,6 +663,7 @@ GRANT EXECUTE ON FUNCTION public.get_player_session(UUID, TEXT) TO anon, authent
 GRANT EXECUTE ON FUNCTION public.player_set_password(UUID, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_player_weekly_score(UUID, TEXT, DATE) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.record_player_game_session(UUID, TEXT, TEXT, TEXT, INTEGER, INTEGER, INTEGER, DATE) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_play_status(UUID, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_weekly_leaderboard(DATE) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.player_sign_out(UUID, TEXT) TO anon, authenticated;
 

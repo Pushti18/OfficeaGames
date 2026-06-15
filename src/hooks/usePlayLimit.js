@@ -1,38 +1,40 @@
-const PLAY_HISTORY_PREFIX = 'og_play_history_'
+import { supabase } from '../lib/supabase.js'
+
 const WINDOW_MS = 8 * 60 * 60 * 1000 // 8 hours
 const MAX_PLAYS = 2
 const TESTING_NO_PLAY_LIMIT = false
 
-function getKey(playerId) {
-  return PLAY_HISTORY_PREFIX + (playerId || 'unknown')
-}
-
-export function getPlayStatus(playerId) {
-  const raw = localStorage.getItem(getKey(playerId))
-  const history = raw ? JSON.parse(raw) : []
-  const cutoff = Date.now() - WINDOW_MS
-  const recent = history.filter(p => p.playedAt > cutoff)
-
+/**
+ * Query Supabase for this player's recent game sessions within the play window.
+ * Returns { playsRemaining, nextPlayTime, recentCount }
+ */
+export async function getPlayStatus(playerId, sessionToken, fingerprint) {
   if (TESTING_NO_PLAY_LIMIT) {
-    return { playsRemaining: Number.POSITIVE_INFINITY, nextPlayTime: null, recentCount: recent.length }
+    return { playsRemaining: Number.POSITIVE_INFINITY, nextPlayTime: null, recentCount: 0 }
   }
 
-  const playsRemaining = Math.max(0, MAX_PLAYS - recent.length)
+  if (!playerId || !supabase || !sessionToken || !fingerprint) {
+    return { playsRemaining: MAX_PLAYS, nextPlayTime: null, recentCount: 0 }
+  }
+
+  const { data, error } = await supabase.rpc('get_play_status', {
+    _session_token: sessionToken,
+    _fp_hash: fingerprint,
+  })
+
+  if (error) {
+    console.error('Failed to fetch play status:', error)
+    return { playsRemaining: MAX_PLAYS, nextPlayTime: null, recentCount: 0 }
+  }
+
+  const recentCount = data?.recent_count ?? 0
+  const playsRemaining = Math.max(0, MAX_PLAYS - recentCount)
   const nextPlayTime =
-    playsRemaining === 0
-      ? new Date(recent[0].playedAt + WINDOW_MS)
+    playsRemaining === 0 && data?.oldest_played_at
+      ? new Date(new Date(data.oldest_played_at).getTime() + WINDOW_MS)
       : null
 
-  return { playsRemaining, nextPlayTime, recentCount: recent.length }
-}
-
-export function recordPlay(playerId, gameType) {
-  const raw = localStorage.getItem(getKey(playerId))
-  const history = raw ? JSON.parse(raw) : []
-  const cutoff = Date.now() - WINDOW_MS
-  const recent = history.filter(p => p.playedAt > cutoff)
-  recent.push({ playedAt: Date.now(), gameType })
-  localStorage.setItem(getKey(playerId), JSON.stringify(recent))
+  return { playsRemaining, nextPlayTime, recentCount }
 }
 
 export function getLastGameType() {

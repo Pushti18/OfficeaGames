@@ -485,8 +485,8 @@ function AdminPanel() {
   )
 }
 
-export default function GameHub({ player, weeklyScore, isAdmin, onPlay, onLeaderboard, onStats, onDaily, onLogout }) {
-  const [playStatus, setPlayStatus] = useState(getPlayStatus(player?.id))
+export default function GameHub({ player, weeklyScore, isAdmin, onPlay, onLeaderboard, onStats, onDaily, onLogout, sessionToken, fingerprint }) {
+  const [playStatus, setPlayStatus] = useState({ playsRemaining: 0, nextPlayTime: null, recentCount: 0 })
   const [countdown, setCountdown] = useState('')
   const [muted, setMutedState] = useState(isMuted())
 
@@ -500,14 +500,34 @@ export default function GameHub({ player, weeklyScore, isAdmin, onPlay, onLeader
   const diffCfg = DIFFICULTY_CONFIG[difficulty]
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const status = getPlayStatus(player?.id)
-      setPlayStatus(status)
-      if (status.nextPlayTime) {
-        setCountdown(formatCountdown(status.nextPlayTime))
-      }
+    // Fetch play status from DB
+    let cancelled = false
+    async function fetchStatus() {
+      const status = await getPlayStatus(player?.id, sessionToken, fingerprint)
+      if (!cancelled) setPlayStatus(status)
+    }
+    fetchStatus()
+    const dbInterval = setInterval(fetchStatus, 30000) // Refresh from DB every 30s
+
+    // Update countdown display every second (local timer, no DB call)
+    const tickInterval = setInterval(() => {
+      setPlayStatus(prev => {
+        if (prev.nextPlayTime) {
+          setCountdown(formatCountdown(prev.nextPlayTime))
+          // If countdown expired, trigger a DB refresh
+          if (new Date(prev.nextPlayTime) <= new Date()) {
+            fetchStatus()
+          }
+        }
+        return prev
+      })
     }, 1000)
-    return () => clearInterval(interval)
+
+    return () => {
+      cancelled = true
+      clearInterval(dbInterval)
+      clearInterval(tickInterval)
+    }
   }, [])
 
   const nextPoints = difficulty === 'easy' ? 51 : difficulty === 'medium' ? 151 : null
