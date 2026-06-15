@@ -1,10 +1,14 @@
-const PLAY_HISTORY_KEY = 'og_play_history'
+const PLAY_HISTORY_PREFIX = 'og_play_history_'
 const WINDOW_MS = 8 * 60 * 60 * 1000 // 8 hours
 const MAX_PLAYS = 2
 const TESTING_NO_PLAY_LIMIT = false
 
-export function getPlayStatus() {
-  const raw = localStorage.getItem(PLAY_HISTORY_KEY)
+function getKey(playerId) {
+  return PLAY_HISTORY_PREFIX + (playerId || 'unknown')
+}
+
+export function getPlayStatus(playerId) {
+  const raw = localStorage.getItem(getKey(playerId))
   const history = raw ? JSON.parse(raw) : []
   const cutoff = Date.now() - WINDOW_MS
   const recent = history.filter(p => p.playedAt > cutoff)
@@ -22,13 +26,13 @@ export function getPlayStatus() {
   return { playsRemaining, nextPlayTime, recentCount: recent.length }
 }
 
-export function recordPlay(gameType) {
-  const raw = localStorage.getItem(PLAY_HISTORY_KEY)
+export function recordPlay(playerId, gameType) {
+  const raw = localStorage.getItem(getKey(playerId))
   const history = raw ? JSON.parse(raw) : []
   const cutoff = Date.now() - WINDOW_MS
   const recent = history.filter(p => p.playedAt > cutoff)
   recent.push({ playedAt: Date.now(), gameType })
-  localStorage.setItem(PLAY_HISTORY_KEY, JSON.stringify(recent))
+  localStorage.setItem(getKey(playerId), JSON.stringify(recent))
 }
 
 export function getLastGameType() {

@@ -486,7 +486,7 @@ function AdminPanel() {
 }
 
 export default function GameHub({ player, weeklyScore, isAdmin, onPlay, onLeaderboard, onStats, onDaily, onLogout }) {
-  const [playStatus, setPlayStatus] = useState(getPlayStatus())
+  const [playStatus, setPlayStatus] = useState(getPlayStatus(player?.id))
   const [countdown, setCountdown] = useState('')
   const [muted, setMutedState] = useState(isMuted())
 
@@ -501,7 +501,7 @@ export default function GameHub({ player, weeklyScore, isAdmin, onPlay, onLeader
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const status = getPlayStatus()
+      const status = getPlayStatus(player?.id)
       setPlayStatus(status)
       if (status.nextPlayTime) {
         setCountdown(formatCountdown(status.nextPlayTime))

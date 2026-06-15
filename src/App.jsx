@@ -300,7 +300,7 @@ export default function App() {
   }
 
   async function handlePlay() {
-    const status = getPlayStatus()
+    const status = getPlayStatus(player?.id)
     if (status.playsRemaining <= 0) return
     gameEndedRef.current = false
     const gameType = pickRandomGame(getLastGameType())
@@ -342,7 +342,7 @@ export default function App() {
     const { answers, hintsUsed } = normalized
     const { total, correct, wrong, hintPenalty } = calculateFinalScore(answers, gameConfig.difficulty, hintsUsed)
 
-    recordPlay(gameConfig.type)
+    recordPlay(player?.id, gameConfig.type)
     setLastGameType(gameConfig.type)
 
     if (supabase && player?.id && sessionToken) {
@@ -430,7 +430,7 @@ export default function App() {
   )
 
   if (view === 'result') {
-    const { playsRemaining } = getPlayStatus()
+    const { playsRemaining } = getPlayStatus(player?.id)
     return <>
       {achievementToast}
       <GameResult result={gameResult} playsRemaining={playsRemaining} onPlayAgain={handlePlay} onHub={() => setView('hub')} onLeaderboard={() => setView('leaderboard')} />
