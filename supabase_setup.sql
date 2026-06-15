@@ -1308,14 +1308,16 @@ BEGIN
 END;
 $function$
 ;
+DROP FUNCTION IF EXISTS public.record_daily_score(uuid, text, date, integer, integer, integer);
 CREATE OR REPLACE FUNCTION public.record_daily_score(_session_token uuid, _fp_hash text, _challenge_date date, _score integer, _correct integer, _wrong integer)
- RETURNS boolean
+ RETURNS TABLE(new_achievement_id TEXT, new_title TEXT, new_icon TEXT)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'private'
 AS $function$
 DECLARE
   v_pid UUID;
+  v_daily_count BIGINT;
 BEGIN
   v_pid := private.resolve_player_session(_session_token, _fp_hash);
 
@@ -1323,7 +1325,21 @@ BEGIN
   VALUES (_challenge_date, v_pid, _score, _correct, _wrong)
   ON CONFLICT (challenge_date, player_id) DO NOTHING;
 
-  RETURN TRUE;
+  -- Award daily achievements in the same transaction
+  SELECT COUNT(*) INTO v_daily_count FROM daily_scores WHERE player_id = v_pid;
+
+  IF v_daily_count >= 1 THEN
+    INSERT INTO player_achievements (player_id, achievement_id) VALUES (v_pid, 'daily_first') ON CONFLICT DO NOTHING;
+    IF FOUND THEN
+      RETURN QUERY SELECT a.id, a.title, a.icon FROM achievements a WHERE a.id = 'daily_first';
+    END IF;
+  END IF;
+  IF v_daily_count >= 10 THEN
+    INSERT INTO player_achievements (player_id, achievement_id) VALUES (v_pid, 'daily_10') ON CONFLICT DO NOTHING;
+    IF FOUND THEN
+      RETURN QUERY SELECT a.id, a.title, a.icon FROM achievements a WHERE a.id = 'daily_10';
+    END IF;
+  END IF;
 END;
 $function$
 ;

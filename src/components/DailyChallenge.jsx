@@ -83,7 +83,8 @@ export default function DailyChallenge({ player, sessionToken, fingerprint, onBa
 
     if (supabase && sessionToken) {
       try {
-        await supabase.rpc('record_daily_score', {
+        // Record score and award daily achievements in one transaction
+        const { data: dailyAch } = await supabase.rpc('record_daily_score', {
           _session_token: sessionToken,
           _fp_hash: fingerprint,
           _challenge_date: today,
@@ -94,11 +95,11 @@ export default function DailyChallenge({ player, sessionToken, fingerprint, onBa
         const lbRes = await supabase.rpc('get_daily_leaderboard', { _challenge_date: today })
         if (lbRes.data) setLeaderboard(lbRes.data)
 
-        // Check achievements
+        // Check other achievements (score, difficulty, streak, etc.)
         const totalTime = DIFFICULTY_CONFIG[difficulty]?.timeSeconds || 90
         const timeRemainingPct = answers.length > 0 && answers[answers.length - 1].timeLeft != null
           ? (answers[answers.length - 1].timeLeft / totalTime) * 100 : 0
-        const { data: earned } = await supabase.rpc('check_and_award_achievements', {
+        const { data: otherAch } = await supabase.rpc('check_and_award_achievements', {
           _session_token: sessionToken,
           _fp_hash: fingerprint,
           _game_score: total,
@@ -107,7 +108,21 @@ export default function DailyChallenge({ player, sessionToken, fingerprint, onBa
           _difficulty: difficulty,
           _time_remaining_pct: Math.round(timeRemainingPct),
         })
-        if (earned?.length) setEarnedAchievements(earned)
+
+        // Merge daily + other achievements, deduplicate by id
+        const allEarned = [...(dailyAch || []), ...(otherAch || [])]
+        const seen = new Set()
+        const unique = allEarned.filter(a => {
+          const id = a.new_achievement_id || a.achievement_id
+          if (seen.has(id)) return false
+          seen.add(id)
+          return true
+        }).map(a => ({
+          achievement_id: a.new_achievement_id || a.achievement_id,
+          title: a.new_title || a.title,
+          icon: a.new_icon || a.icon,
+        }))
+        if (unique.length) setEarnedAchievements(unique)
       } catch (_) {}
     }
   }, [challenge, sessionToken, fingerprint, today])

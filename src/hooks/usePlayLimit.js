@@ -1,7 +1,7 @@
 const PLAY_HISTORY_KEY = 'og_play_history'
 const WINDOW_MS = 8 * 60 * 60 * 1000 // 8 hours
 const MAX_PLAYS = 2
-const TESTING_NO_PLAY_LIMIT = true
+const TESTING_NO_PLAY_LIMIT = false
 
 export function getPlayStatus() {
   const raw = localStorage.getItem(PLAY_HISTORY_KEY)
